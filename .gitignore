@@ -1,0 +1,18 @@
+# 本地配置与密钥（绝不提交）
+**/config.toml
+**/*.bak*
+**/*.sqlite
+**/.codex/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时与测试
+测试/
+*.log

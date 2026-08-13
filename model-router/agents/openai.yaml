@@ -1,0 +1,4 @@
+interface:
+  display_name: "模型路由（Flash/Pro 自动判断）"
+  short_description: "默认 Flash；新任务判定一次，重活或评分≥30 自动升 Pro，结束回 Flash"
+  default_prompt: "使用 $model-router 判定下一个任务该用 Flash 还是 Pro。"
