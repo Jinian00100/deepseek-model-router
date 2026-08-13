@@ -43,15 +43,22 @@
 ## 6. 切换方式与限制（Codex 实测）
 - CLI：`codex exec -m/--model deepseek-v4-pro|deepseek-v4-flash`；交互式会话用 `/model`
 - 桌面端：每个线程在 `~/.codex/state_5.sqlite` 的 `threads.model` 独立记录；自定义 provider 的 UI 热切换不可靠（openai/codex#15364，2026-05 关闭，未实现）
-- 多代理：spawn_agent 支持 `model=deepseek-v4-pro` / `deepseek-v4-flash` 覆盖，但必须 `fork_turns=none` 或少量轮次才生效；整段 fork 会继承父模型
+- 多代理：spawn_agent 支持 `model=deepseek-v4-pro` / `deepseek-v4-flash` 覆盖，但必须 `fork_turns=none` 或少量轮次才生效；整段 fork 会继承父模型（注意：DeepSeek 下消息通道不可用，见第 8 节）
 - 当前本机默认：`config.toml` 的 `model = "deepseek-v4-flash"`
 
 ## 7. 使用注意
 - Pro 输出价为 Flash 的 3 倍；高峰时段双双翻倍，避开高峰能省钱
 - 简单任务用 Flash；评分 ≥30 或命中 Pro 清单才升级（流程见 SKILL.md）
-## 8. 测试发现（2026-08-13）
-- spawn_agent / followup 消息通道在非 OpenAI 提供方下曾不可用：任务文本被放进 encrypted_content 被 DeepSeek 丢弃（上游 openai/codex #37237 / #36493 / #37822）。已应用配置 workaround（2026-08-13）：models.json 两个 DeepSeek 模型 multi_agent_version v2→v1、supports_search_tool true→false；备份 models.json（本地）；重启后探针验证。验证前/失败时回退：API 直调 deepseek-v4-pro + Flash 验收。
-- Pro 思考模式可能吃满 max_tokens 导致 content 为空（case-09 首次 16384 空输出，finish_reason=length）。判定方法：content 为空且 finish_reason=length → 思考吃满预算。文档类任务给足预算（max_tokens ≥32768）或改用非思考模式。
-- 初测（未重启，2026-08-13）：探针 spawn 仍收不到任务；且 spawn_agent 模型覆盖列表变空（v1 下可能不再支持覆盖）。待完全重启后复测；若 v1 不支持 Pro 覆盖，则 Pro 任务继续走 API 直调回退。
-- 二次探针（2026-08-13）：消息仍未送达（子代理回“等待任务”）。若确认已完全重启仍如此，则 v1 workaround 在本机/本构建无效，建议恢复 v2 备份并继续走 API 直调回退。
-- 终测结论（2026-08-13）：完全重启后二次探针仍失败 → v1 workaround 在本机无效；已恢复 v2（models.json 与备份一致）。本机 Pro 子代理通道判定不可用，执行通道固定为 API 直调 + Flash 验收；待上游 #37197。
+## 8. 实测发现（2026-08-13）
+
+### 8.1 子代理消息通道 —— 结论：当前不可用
+非 OpenAI 提供方（DeepSeek）下，spawn_agent / followup_task 的任务正文会被 encrypted_content 机制丢弃（上游 openai/codex #37237 / #36493 / #37822）。社区 v1 workaround 经完全重启实测无效，已回滚 v2。本技能 Pro 执行默认走 API 直调 deepseek-v4-pro + Flash 验收；上游修复后恢复 spawn_agent。
+
+排查记录：
+- 现象：spawn 后子代理只回“等待任务”，任务正文未送达；fork_turns=none 与 1 均无效（1 只是继承了父历史）。
+- workaround 尝试：models.json 两个模型 multi_agent_version v2→v1、supports_search_tool true→false，修改前已备份本地文件；初测（未重启）失败。
+- 二次探针（完全重启后）仍失败 → 判定 v1 workaround 无效；已恢复 v2。
+- 附带现象：v1 模式下 spawn_agent 的模型覆盖列表为空（可能与 v1 协议有关，未深究）。
+
+### 8.2 Pro 输出预算 —— 结论：文档任务给足 max_tokens
+Pro 思考模式可能吃满 max_tokens 导致 content 为空（case-09 首次 16384 空输出，finish_reason=length）。判定方法：content 为空且 finish_reason=length → 思考吃满预算。文档类任务给足预算（max_tokens ≥32768）或改用非思考模式。

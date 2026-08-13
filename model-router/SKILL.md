@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: 模型路由技能：主对话默认用 DeepSeek-V4-Flash；每个新任务先由 Flash 判定一次，是否升级到 DeepSeek-V4-Pro。命中 Pro 清单（仓库级/跨模块重构、高难度编码与疑难 bug、核心架构/算法设计、复杂多步 Agent 任务）或返工风险评分 ≥30 时，通过 Pro 执行通道调用 deepseek-v4-pro 执行（当前环境为 API 直调 + Flash 验收；通道修复后恢复 spawn_agent），Pro 执行禁止再次路由；否则 Flash 直接执行。Pro 子代理交付后自动结束，主对话始终 Flash，等待下一次任务判定。适用于“默认 Flash、重活自动上 Pro”的模型路由场景、判定“该用 Flash 还是 Pro”的决策、DeepSeek V4 Pro/Flash 能力与定价查询，以及用户手动指定模型时的优先规则。
+description: 模型路由技能：主对话默认用 DeepSeek-V4-Flash；每个新任务先由 Flash 判定一次，是否升级到 DeepSeek-V4-Pro。命中 Pro 清单（仓库级/跨模块重构、高难度编码与疑难 bug、核心架构/算法设计、复杂多步 Agent 任务）或返工风险评分 ≥30 时，通过 Pro 执行通道调用 deepseek-v4-pro 执行（当前环境为 API 直调 + Flash 验收；通道修复后恢复 spawn_agent），Pro 执行禁止再次路由；否则 Flash 直接执行。Pro 执行完成后自动结束，主对话始终 Flash，等待下一次任务判定。适用于“默认 Flash、重活自动上 Pro”的模型路由场景、判定“该用 Flash 还是 Pro”的决策、DeepSeek V4 Pro/Flash 能力与定价查询，以及用户手动指定模型时的优先规则。
 ---
 
 # 模型路由（Flash / Pro）v2
@@ -31,23 +31,22 @@ description: 模型路由技能：主对话默认用 DeepSeek-V4-Flash；每个�
 4. 边界任务（长分镜/长剧本、多文件但结构清晰）：不整篇盲写，先交付大纲/小样/前几镜快速判断；质量不达标则升 Pro 返工该部分（同一任务链延续，不重新判定）。若评分已 ≥30，直接走 Pro 序列。
 
 ## Pro 执行序列
-1. 打包上下文：目标、关键上下文/文件路径、验收标准、交付格式，写进任务消息；不整段 fork。
-2. 输出预算：文档/长文类任务把 max_tokens 给足（≥32768）或改用非思考模式；默认 16384 只适合短输出。
-3. 执行通道：按「执行通道」选择——当前默认 API 直调 deepseek-v4-pro；spawn_agent（model=deepseek-v4-pro、fork_turns=none）待上游修复后恢复。
-4. wait_agent 等结果；子代理运行期间不开新重活。
-5. 验收：对照验收标准检查。不合格且可修 → followup_task 让同一 Pro 子代理返修，最多 1 次；仍不合格 → 回主对话向用户说明，给选项（重试/换 Flash/手动处理），不无限重跑。
-6. 空内容兜底：返回内容为空且 finish_reason=length（思考吃满预算）→ 加大 max_tokens（≥32768）重试 1 次，再按验收规则处理。
-7. 交付后 Pro 子代理结束，主对话回到 Flash；下一次新任务重新判定。
-8. 用户打断：先响应用户，再决定继续/取消当前 Pro 任务。
+1. 打包上下文：目标、关键上下文/文件路径、验收标准、交付格式；不整段 fork。
+2. 输出预算：文档/长文类任务 max_tokens ≥32768 或改用非思考模式；默认 16384 只适合短输出。
+3. 选择执行通道并调用 deepseek-v4-pro（见「执行通道」）：当前默认 API 直调，输出由 Flash 落地并验证；上游修复后恢复 spawn_agent（model=deepseek-v4-pro、fork_turns=none）→ wait_agent。
+4. 验收：对照验收标准检查。不合格且可修 → 返修最多 1 次（API 通道直接重发；spawn 通道用 followup_task）；仍不合格 → 向用户说明，给选项（重试/换 Flash/手动处理），不无限重跑。
+5. 空内容兜底：content 为空且 finish_reason=length（思考吃满预算）→ 加大 max_tokens（≥32768）重试 1 次，再按验收规则处理。
+6. 交付后自动回到 Flash；下一次新任务重新判定。
+7. 用户打断：先响应用户，再决定继续/取消当前 Pro 任务。
 
 ## 执行通道（2026-08-13，结论版）
 - 本机结论：spawn_agent / followup_task 消息通道在 DeepSeek（非 OpenAI）下不可用——任务正文被 encrypted_content 丢弃（上游 openai/codex #37237 / #36493 / #37822）。models.json 的 v1 workaround 已实测无效（完全重启后探针仍收不到），已回滚为 v2。
 - Pro 执行默认走：API 直调 deepseek-v4-pro + Flash 验收（同一 Pro 模型，输出由 Flash 落地并验证）。
 - 若上游修复或通道探针通过：恢复 spawn_agent 首选（model=deepseek-v4-pro、fork_turns=none），并重新实测。
-- 文档/长文任务预算：max_tokens ≥32768（见 Pro 执行序列第 2、6 条）。
+- 文档/长文任务预算：max_tokens ≥32768（见 Pro 执行序列第 2、5 条）。
 
 ## 透明度与纠偏
-- 升 Pro 时用一句话说明（“这个任务我派 Pro 执行”）；Flash 任务不播报判定。
+- 升 Pro 时用一句话说明（“这个任务我用 Pro 执行”）；Flash 任务不播报判定。
 - 判定错误：用户说“用 Pro/用 Flash”即可强制切换，下一任务恢复自动判定。
 
 ## 依据（2026-08-13 官方数据）
