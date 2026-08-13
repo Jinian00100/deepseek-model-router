@@ -62,7 +62,7 @@ install-skill --repo Jinian00100/deepseek-model-router --path model-router
 name = "deepseek"
 base_url = "https://api.deepseek.com"
 wire_api = "responses"
-experimental_bearer_token = "你的 key（不要提交到任何仓库）"
+experimental_bearer_token = "<YOUR_API_KEY>"
 ```
 
 - 模型目录中登记 `deepseek-v4-flash` 与 `deepseek-v4-pro`
