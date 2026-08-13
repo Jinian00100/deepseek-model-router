@@ -1,5 +1,7 @@
 # deepseek-model-router
 
+> **[English](./README.en.md)**
+
 > Codex 模型路由技能：**日常用 Flash，重活自动上 Pro**，Pro 干完自动回到 Flash。
 
 一个为 DeepSeek V4 用户设计的 Codex Skill。它让 Codex 每次接到新任务时先做一次低成本判定：任务够“重”才升级到 DeepSeek-V4-Pro，否则全程使用 DeepSeek-V4-Flash。既能保住日常任务的响应速度，又能把真正的硬骨头交给更强的模型，不浪费 token。
