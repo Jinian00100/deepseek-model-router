@@ -42,7 +42,7 @@
 
 ## 6. 切换方式与限制（Codex 实测）
 - CLI：`codex exec -m/--model deepseek-v4-pro|deepseek-v4-flash`；交互式会话用 `/model`
-- 桌面端：每个线程在 `~/.codex/state_5.sqlite` 的 `threads.model` 独立记录；自定义 provider 的 UI 热切换不可靠（openai/codex#15364，2026-05 关闭，未实现）
+- 桌面端：每个线程在 `~/.codex/state_5.sqlite` 的 `threads.model` 独立记录；2026-08-14 用户实测 UI 可手动切换 Flash/Pro（此前 openai/codex#15364 记录自定义 provider UI 热切换不可靠，当前版本已可用），作为 v3 首选 Pro 通道
 - 多代理：spawn_agent 支持 `model=deepseek-v4-pro` / `deepseek-v4-flash` 覆盖，但必须 `fork_turns=none` 或少量轮次才生效；整段 fork 会继承父模型（注意：DeepSeek 下消息通道不可用，见第 8 节）
 - 当前本机默认：`config.toml` 的 `model = "deepseek-v4-flash"`
 
@@ -62,3 +62,7 @@
 
 ### 8.2 Pro 输出预算 —— 结论：文档任务给足 max_tokens
 Pro 思考模式可能吃满 max_tokens 导致 content 为空（case-09 首次 16384 空输出，finish_reason=length）。判定方法：content 为空且 finish_reason=length → 思考吃满预算。文档类任务给足预算（max_tokens ≥32768）或改用非思考模式。
+
+### 8.3 手动切换通道（2026-08-14）
+- Codex 桌面端界面可手动切换 Flash/Pro（用户实测确认），成为 v3 Pro 执行首选通道；API 直调降级为兜底（用户不切换但要求继续时）。
+- 子代理通道结论不变（见 8.1），暂不恢复 spawn_agent。
