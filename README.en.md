@@ -23,6 +23,7 @@ This skill turns "should I use Pro?" into an executable rule, with a complete lo
 5. After Pro finishes and is accepted, it suggests switching back to Flash; the next new task is judged again.
 6. When the user explicitly says "use Pro / use Flash", the user always wins.
 7. Switching discipline: at most one switch per task chain; mid-task upgrades require a state-handoff block; do not rescue mid-task when ≥70% complete.
+8. Six-step task pipeline: decide → conditionally split (no split by default; only large multi-deliverable outputs) → order skills → execute → three-pass review → delivery gate.
 
 ### Pro checklist (any hit → suggest Pro)
 
@@ -103,6 +104,7 @@ deepseek-model-router/
 
 ## Version
 
+- **v4.5 (2026-08-17)**: the task pipeline is formalized into six steps (decide → conditionally split → order → execute → three-pass review → delivery gate); splitting keeps the measured conclusion — no split by default, only large multi-deliverable outputs.
 - **v4.4 (2026-08-15)**: large-sample experiments (13 tasks × 2 rounds, 104 calls) finalized routing decisions 13/13 with stable boundary scores; volume checklist + Pro checklist + scoring table finalized; long-output tasks default to non-thinking mode with automatic retry on empty output.
 - Full changelog: see "Version changes" at the top of `model-router/SKILL.md`.
 
